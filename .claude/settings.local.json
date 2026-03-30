@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Read(/Users/denglubin/curioSync/**)",
+      "Write(/Users/denglubin/curioSync/**)",
+      "Edit(/Users/denglubin/curioSync/**)",
+      "mcp__MiniMax__web_search",
+      "mcp__MiniMax__understand_image"
+    ]
+  }
+}

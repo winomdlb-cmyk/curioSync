@@ -1,0 +1,157 @@
+# Backend Agent
+
+> 负责 CurioSync 后端开发的 Agent
+
+## 职责范围
+
+- FastAPI 后端服务的开发和维护
+- Supabase 数据库操作
+- LLM 服务集成（MiniMax API）
+- SSE 流式响应实现
+- API 路由和业务逻辑
+
+## 技术栈
+
+- FastAPI (Python 3.11+)
+- LangChain
+- Supabase (PostgreSQL + pgvector)
+- MiniMax API
+
+## 目录结构
+
+```
+backend/
+├── main.py                 # FastAPI 入口
+├── database.py             # Supabase 连接
+├── requirements.txt       # 依赖
+├── .env                   # 环境变量（本地）
+├── models/
+│   └── schemas.py         # Pydantic 模型
+├── prompts/
+│   └── templates.py      # Prompt 模板
+├── routers/
+│   ├── topics.py         # 主题 API
+│   ├── conversations.py  # 对话 API（含 SSE）
+│   └── knowledge.py       # 知识图谱 API
+└── services/
+    ├── llm_service.py     # LLM 调用服务
+    ├── graph_service.py   # 知识图谱服务
+    └── mastery_service.py  # 掌握度服务
+```
+
+## API 路由
+
+### Topics
+- `GET /api/topics` - 获取所有主题
+- `POST /api/topics` - 创建主题
+- `GET /api/topics/{topic_id}` - 获取主题详情
+- `DELETE /api/topics/{topic_id}` - 删除主题
+
+### Conversations
+- `GET /api/conversations?topic_id=` - 获取主题下所有对话
+- `POST /api/conversations` - 创建新对话
+- `GET /api/conversations/{id}/messages` - 获取消息历史
+- `POST /api/conversations/{id}/chat` - 发送消息（SSE 流式）
+- `DELETE /api/conversations/{id}` - 删除对话
+
+### Knowledge
+- `GET /api/knowledge/graph?topic_id=` - 获取完整图谱
+- `GET /api/knowledge/nodes/{node_id}` - 获取节点详情
+
+## SSE 事件类型
+
+```javascript
+event: content        // 逐字流式输出
+event: node_hint    // 节点提示（新节点/掌握度升级）
+event: intervention  // 介入卡片
+event: graph_update  // 图谱更新
+event: done          // 结束
+```
+
+## 服务层
+
+### LLM Service (`llm_service.py`)
+- `chat_stream()` - 流式对话，处理思考内容过滤
+- `generate_title()` - 生成对话标题
+
+### Graph Service (`graph_service.py`)
+- `update_graph()` - 更新知识图谱（节点、边、掌握度）
+- `get_graph()` - 获取完整图谱
+- `_assign_position()` - 网格布局坐标计算
+
+### Mastery Service (`mastery_service.py`)
+- `infer_level()` - 推断掌握度
+- `update_mastery()` - 更新掌握度（只升不降）
+
+## 开发原则
+
+1. **API 优先**: 所有功能通过 API 暴露
+2. **流式响应**: 使用 SSE 实现实时交互
+3. **错误处理**: 完善的异常捕获和降级处理
+4. **性能优化**: 避免 N+1 查询，使用批量操作
+5. **UUID 验证**: 无效 UUID 返回 404
+
+## 数据库表
+
+```sql
+topics              -- 主题
+conversations       -- 对话
+messages            -- 消息
+knowledge_nodes     -- 知识节点
+knowledge_edges     -- 知识边
+bookmarks           -- 兴趣书签
+conversation_states -- 对话状态
+```
+
+## 当前任务 (Phase 2-4)
+
+### Phase 2 - 结构化输出 + 知识图谱
+- [x] Prompt 升级为结构化 JSON 输出
+- [x] graph_service 节点提取、去重、坐标分配
+- [x] node_hint + graph_update SSE 事件
+
+### Phase 3 - 介入卡片
+- [x] conversation_states 更新逻辑
+- [x] 三种介入触发规则（converge/transition/bookmark）
+- [x] bookmarks 表写入
+- [x] intervention SSE 事件
+
+### Phase 4 - 体验打磨
+- [ ] 对话标题自动生成（第一条消息后异步）
+- [ ] 错误处理降级（LLM 失败时优雅降级）
+
+## 协作接口
+
+### Prompt 模板
+使用 `prompts/templates.py` 中的模板：
+- `MAIN_SYSTEM_PROMPT` - 主对话 Prompt
+- `TITLE_GENERATION_PROMPT` - 标题生成 Prompt
+
+### LLM 响应格式
+```json
+{
+  "answer": "回答内容",
+  "observation": {
+    "new_topic": "新话题",
+    "divergence_delta": 0.05,
+    "mastery_signal": "asking_basic",
+    "mastery_topic": "知识点名"
+  },
+  "knowledge_extraction": {
+    "new_nodes": [{"label": "知识点", "description": "描述"}],
+    "new_edges": [{"source_label": "A", "target_label": "B", "relation": "关系"}],
+    "nodes_to_update": [{"label": "知识点", "mastery_level": "UNDERSTOOD"}]
+  },
+  "intervention": {
+    "should_intervene": false,
+    "type": "none",
+    "content": {}
+  }
+}
+```
+
+## 参考文档
+
+- 产品概念: `docs/concept/CurioSync Concept v0.1.md`
+- 开发规格: `docs/specs/CurioSync MVP Development Document v2.0.md`
+- 根配置: `CLAUDE.md`
