@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Topic, Conversation, Message, KnowledgeGraph } from '@/lib/types'
 import { getTopic, getConversations, createConversation, deleteConversation, getMessages, sendMessage } from '@/lib/api'
@@ -33,6 +33,8 @@ export default function TopicPage() {
   const [showBookmarkToast, setShowBookmarkToast] = useState(false)
   const [bookmarkContent, setBookmarkContent] = useState<{ title: string; description: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [retryMessage, setRetryMessage] = useState<string | null>(null)
+  const failedMessageRef = useRef<string>('')
 
   useEffect(() => {
     loadTopicData()
@@ -133,8 +135,10 @@ export default function TopicPage() {
   const handleSendMessage = useCallback(async (content: string) => {
     if (!currentConversation) return
 
-    // 清除之前的错误
+    // 清除之前的错误和重试消息
     setError(null)
+    setRetryMessage(null)
+    failedMessageRef.current = content
 
     // 添加用户消息到列表（乐观更新）
     const tempUserMsg: Message = {
@@ -195,23 +199,34 @@ export default function TopicPage() {
           console.log('graph_update', data)
         },
         onDone: (data) => {
-          // 更新消息列表（替换临时消息）
-          setMessages(prev => prev.map(m => {
-            if (m.id.startsWith('temp-')) {
-              return { ...m, id: data.message_id }
+          // 只更新对话标题，消息已在本地正确更新
+          getConversations(topicId).then(res => {
+            setConversations(res.conversations || [])
+            // 更新当前对话的标题（如果有变化）
+            if (currentConversation && res.conversations) {
+              const updated = res.conversations.find((c: any) => c.id === currentConversation.id)
+              if (updated) {
+                setCurrentConversation(updated)
+              }
             }
-            return m
-          }))
-          // 刷新对话列表（更新标题等）
-          loadTopicData()
+          })
         },
         onError: (error) => {
           console.error('Chat error:', error)
-          setError('AI 回复失败，请稍后重试')
+          // 存储失败的消息内容用于重试
+          if (failedMessageRef.current) {
+            setRetryMessage(failedMessageRef.current)
+          }
         },
       }
     )
   }, [currentConversation, topicId])
+
+  const handleRetry = useCallback(() => {
+    if (retryMessage) {
+      handleSendMessage(retryMessage)
+    }
+  }, [retryMessage, handleSendMessage])
 
   if (loading) {
     return (
@@ -357,6 +372,8 @@ export default function TopicPage() {
               topicTitle={topic.title}
               messages={messages}
               onSendMessage={handleSendMessage}
+              retryMessage={retryMessage}
+              onRetry={handleRetry}
             />
           ) : (
             <KnowledgeMapView topicId={topicId} />

@@ -76,14 +76,20 @@ export async function sendMessage(
   content: string,
   callbacks: StreamCallbacks
 ): Promise<void> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/conversations/${conversationId}/chat`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content, topic_id: topicId }),
-    }
-  )
+  let response
+  try {
+    response = await fetch(
+      `${API_BASE_URL}/api/conversations/${conversationId}/chat`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, topic_id: topicId }),
+      }
+    )
+  } catch (error) {
+    callbacks.onError(new Error('网络错误，请检查连接'))
+    return
+  }
 
   if (!response.ok) {
     callbacks.onError(new Error('请求失败'))

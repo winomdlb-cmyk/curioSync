@@ -8,9 +8,11 @@ interface InputBarProps {
   onSend: () => void
   disabled?: boolean
   isThinking?: boolean // AI 刚发送还未开始输出
+  retryMessage?: string | null
+  onRetry?: () => void
 }
 
-export default function InputBar({ value, onChange, onSend, disabled, isThinking }: InputBarProps) {
+export default function InputBar({ value, onChange, onSend, disabled, isThinking, retryMessage, onRetry }: InputBarProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -30,6 +32,19 @@ export default function InputBar({ value, onChange, onSend, disabled, isThinking
 
   return (
     <div className="border-t border-gray-200 bg-white px-4 py-3">
+      {retryMessage && (
+        <div className="max-w-3xl mx-auto mb-2">
+          <div className="flex items-center gap-2 text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            <span>⚠ AI 回复失败</span>
+            <button
+              onClick={onRetry}
+              className="ml-auto text-blue-600 hover:text-blue-700 font-medium"
+            >
+              重试
+            </button>
+          </div>
+        </div>
+      )}
       {isThinking && (
         <div className="max-w-3xl mx-auto mb-2">
           <div className="flex items-center gap-2 text-xs text-gray-400">

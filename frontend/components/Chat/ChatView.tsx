@@ -9,9 +9,11 @@ interface ChatViewProps {
   topicTitle: string
   messages: Message[]
   onSendMessage: (content: string) => void
+  retryMessage?: string | null
+  onRetry?: () => void
 }
 
-export default function ChatView({ topicTitle, messages, onSendMessage }: ChatViewProps) {
+export default function ChatView({ topicTitle, messages, onSendMessage, retryMessage, onRetry }: ChatViewProps) {
   const [inputValue, setInputValue] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [isAIThinking, setIsAIThinking] = useState(false) // 刚发送还未开始输出
@@ -85,6 +87,8 @@ export default function ChatView({ topicTitle, messages, onSendMessage }: ChatVi
         onSend={handleSend}
         disabled={isStreaming}
         isThinking={isAIThinking}
+        retryMessage={retryMessage}
+        onRetry={onRetry}
       />
     </div>
   )
