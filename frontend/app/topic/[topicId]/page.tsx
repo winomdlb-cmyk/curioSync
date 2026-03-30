@@ -118,9 +118,11 @@ export default function TopicPage() {
 
   const handleConvergeOption = (option: string) => {
     setIntervention({ type: null, content: null })
-    if (option === '整理一下') {
+    // 根据选项内容判断行为
+    if (option.includes('整理') || option.includes('回顾')) {
       handleSendMessage('请帮我整理一下目前学到的知识点')
     }
+    // "继续探索" 类选项不需要发消息，对话自然继续
   }
 
   const handleTransitionDirection = (label: string) => {
