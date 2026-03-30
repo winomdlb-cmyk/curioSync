@@ -284,7 +284,7 @@ export default function TopicPage() {
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <aside
-          className={`bg-white border-r border-gray-200 flex flex-col transition-all duration-200 ${
+          className={`bg-white border-r border-gray-200 flex flex-col transition-all duration-200 h-full ${
             sidebarCollapsed ? 'w-12' : 'w-56'
           } shrink-0`}
         >

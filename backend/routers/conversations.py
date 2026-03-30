@@ -12,6 +12,7 @@ from models.schemas import (
     MessageResponse,
     MessageListResponse,
     ChatRequest,
+    RelatedConversationResponse,
 )
 from services.llm_service import LLMService
 from services.graph_service import GraphService
@@ -74,6 +75,53 @@ async def get_conversations(topic_id: str = Query(...)):
         )
 
     return ConversationListResponse(conversations=conversations)
+
+
+@router.get("/related", response_model=RelatedConversationResponse)
+async def get_related_conversations(
+    topic_id: str = Query(...),
+    node_label: str = Query(...),
+):
+    """获取与指定节点相关的对话列表"""
+    # 先获取该主题下所有对话ID
+    convs_result = (
+        supabase.table("conversations")
+        .select("id, title")
+        .eq("topic_id", topic_id)
+        .execute()
+    )
+
+    if not convs_result.data:
+        return RelatedConversationResponse(conversations=[])
+
+    conv_ids = [c["id"] for c in convs_result.data]
+    conv_map = {c["id"]: c["title"] for c in convs_result.data}
+
+    # 查询这些对话中包含节点标签的消息
+    messages_result = (
+        supabase.table("messages")
+        .select("conversation_id, content")
+        .in_("conversation_id", conv_ids)
+        .ilike("content", f"%{node_label}%")
+        .execute()
+    )
+
+    if not messages_result.data:
+        return RelatedConversationResponse(conversations=[])
+
+    # 按对话分组
+    related_convs = {}
+    for msg in messages_result.data:
+        conv_id = msg["conversation_id"]
+        if conv_id not in related_convs:
+            related_convs[conv_id] = {
+                "id": conv_id,
+                "title": conv_map.get(conv_id, "相关对话"),
+                "snippet": msg["content"][:100] + "..." if len(msg["content"]) > 100 else msg["content"],
+            }
+
+    conversations = list(related_convs.values())
+    return RelatedConversationResponse(conversations=conversations)
 
 
 @router.post("", response_model=ConversationResponse)

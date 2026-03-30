@@ -113,6 +113,16 @@ class InterventionData(BaseModel):
     content: dict
 
 
+class RelatedConversationItem(BaseModel):
+    id: str
+    title: str
+    snippet: str  # 消息摘要
+
+
+class RelatedConversationResponse(BaseModel):
+    conversations: list[RelatedConversationItem]
+
+
 class GraphUpdateData(BaseModel):
     new_nodes: list[dict]
     new_edges: list[dict]

@@ -150,3 +150,21 @@ export async function getNodeDetail(nodeId: string): Promise<any> {
   if (!res.ok) throw new Error('Failed to fetch node detail')
   return res.json()
 }
+
+export interface RelatedConversationItem {
+  id: string
+  title: string
+  snippet: string
+}
+
+export async function getRelatedConversations(
+  topicId: string,
+  nodeLabel: string
+): Promise<{ conversations: RelatedConversationItem[] }> {
+  const encodedLabel = encodeURIComponent(nodeLabel)
+  const res = await fetch(
+    `${API_BASE_URL}/api/conversations/related?topic_id=${topicId}&node_label=${encodedLabel}`
+  )
+  if (!res.ok) throw new Error('Failed to fetch related conversations')
+  return res.json()
+}

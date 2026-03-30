@@ -11,7 +11,7 @@ import {
   NodeTypes,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { getKnowledgeGraph } from '@/lib/api'
+import { getKnowledgeGraph, getRelatedConversations, RelatedConversationItem } from '@/lib/api'
 import CustomNode from './CustomNode'
 
 interface KnowledgeMapViewProps {
@@ -27,11 +27,29 @@ export default function KnowledgeMapView({ topicId }: KnowledgeMapViewProps) {
   const [edges, setEdges] = useState<Edge[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [relatedConversations, setRelatedConversations] = useState<RelatedConversationItem[]>([])
+  const [loadingRelated, setLoadingRelated] = useState(false)
   const previousNodeIds = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     loadGraph()
   }, [topicId])
+
+  useEffect(() => {
+    if (selectedNodeId && nodes.length > 0) {
+      const selectedNode = nodes.find(n => n.id === selectedNodeId)
+      if (selectedNode) {
+        const label = (selectedNode.data as any).label
+        setLoadingRelated(true)
+        getRelatedConversations(topicId, label)
+          .then(res => setRelatedConversations(res.conversations || []))
+          .catch(() => setRelatedConversations([]))
+          .finally(() => setLoadingRelated(false))
+      }
+    } else {
+      setRelatedConversations([])
+    }
+  }, [selectedNodeId, nodes, topicId])
 
   async function loadGraph() {
     try {
@@ -139,6 +157,29 @@ export default function KnowledgeMapView({ topicId }: KnowledgeMapViewProps) {
           {(selectedNode.data as any).description && (
             <p className="text-sm text-gray-600">{(selectedNode.data as any).description}</p>
           )}
+
+          {/* Related Conversations */}
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">相关对话</h4>
+            {loadingRelated ? (
+              <div className="text-xs text-gray-400">加载中...</div>
+            ) : relatedConversations.length > 0 ? (
+              <div className="space-y-2">
+                {relatedConversations.map(conv => (
+                  <a
+                    key={conv.id}
+                    href={`/topic/${topicId}?conversation=${conv.id}`}
+                    className="block text-xs p-2 rounded bg-gray-50 hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="font-medium text-gray-800 truncate">{conv.title}</div>
+                    <div className="text-gray-500 truncate">{conv.snippet}</div>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-gray-400">暂无相关对话</div>
+            )}
+          </div>
         </div>
       )}
 
