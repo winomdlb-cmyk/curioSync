@@ -79,7 +79,7 @@ export default function KnowledgeMapView({ topicId }: KnowledgeMapViewProps) {
         label: edge.relation,
         type: 'smoothstep',
         animated: false,
-        style: { stroke: '#9ca3af', strokeWidth: 1.5 },
+        style: { stroke: 'var(--color-gray-400)', strokeWidth: 1.5 },
       })) || []
 
       // 更新之前的节点 ID 集合

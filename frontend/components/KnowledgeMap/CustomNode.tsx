@@ -20,25 +20,25 @@ export default function CustomNode({ data }: CustomNodeProps) {
     ? {
         width: size,
         height: size,
-        background: '#3b82f6',
-        border: '2px solid #1d4ed8',
-        color: 'white',
+        background: 'var(--primary-light)',
+        border: '2px solid var(--color-blue-700)',
+        color: 'var(--primary-foreground)',
         fontWeight: 'bold' as const,
       }
     : masteryLevel === 'EXPOSED'
     ? {
         width: size,
         height: size,
-        background: '#dbeafe',
-        border: '2px solid #93c5fd',
-        color: '#1d4ed8',
+        background: 'var(--color-blue-100)',
+        border: '2px solid var(--color-blue-300)',
+        color: 'var(--color-blue-700)',
       }
     : {
         width: size,
         height: size,
         background: 'white',
-        border: '2px solid #d1d5db',
-        color: '#6b7280',
+        border: '2px solid var(--color-gray-300)',
+        color: 'var(--color-gray-500)',
       }
 
   return (

@@ -4,6 +4,22 @@ import { useState, useEffect } from 'react'
 import { Topic } from '@/lib/types'
 import { getTopics, createTopic, deleteTopic } from '@/lib/api'
 import { useRouter } from 'next/navigation'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
 
 export default function HomePage() {
   const [topics, setTopics] = useState<Topic[]>([])
@@ -82,12 +98,9 @@ export default function HomePage() {
       <header className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">CurioSync</h1>
-          <button
-            onClick={() => setShowModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
+          <Button onClick={() => setShowModal(true)}>
             + 新建主题
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -100,12 +113,9 @@ export default function HomePage() {
         ) : topics.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="text-gray-400 text-lg mb-4">开始你的第一个学习主题</div>
-            <button
-              onClick={() => setShowModal(true)}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
+            <Button onClick={() => setShowModal(true)}>
               + 新建主题
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -115,12 +125,19 @@ export default function HomePage() {
                 onClick={() => router.push(`/topic/${topic.id}`)}
                 className="bg-white rounded-xl p-6 border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer relative group"
               >
-                <button
-                  onClick={(e) => handleDeleteTopic(e, topic.id)}
-                  className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 transition-opacity"
-                >
-                  ···
-                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 h-8 w-8 p-0 rounded-md hover:bg-gray-100">
+                    ···
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={(e) => handleDeleteTopic(e, topic.id)}
+                      className="text-destructive"
+                    >
+                      删除主题
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2 pr-6">
                   {topic.title}
                 </h3>
@@ -143,59 +160,67 @@ export default function HomePage() {
       </main>
 
       {/* Create Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
-            <h2 className="text-xl font-semibold mb-4">新建主题</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  主题名称
-                </label>
-                <input
-                  type="text"
-                  value={newTitle}
-                  onChange={e => setNewTitle(e.target.value)}
-                  placeholder="比如：量子力学入门"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  简单描述（选填）
-                </label>
-                <textarea
-                  value={newDescription}
-                  onChange={e => setNewDescription(e.target.value)}
-                  placeholder="你想了解什么？"
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                />
-              </div>
+      <Dialog open={showModal} onOpenChange={(open) => {
+        if (!open) {
+          setShowModal(false)
+          setNewTitle('')
+          setNewDescription('')
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>新建主题</DialogTitle>
+            <DialogDescription>
+              创建一个新的学习主题，开始你的探索之旅
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                主题名称
+              </label>
+              <input
+                type="text"
+                value={newTitle}
+                onChange={e => setNewTitle(e.target.value)}
+                placeholder="比如：量子力学入门"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoFocus
+              />
             </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowModal(false)
-                  setNewTitle('')
-                  setNewDescription('')
-                }}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleCreateTopic}
-                disabled={!newTitle.trim() || creating}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {creating ? '创建中...' : '创建'}
-              </button>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                简单描述（选填）
+              </label>
+              <textarea
+                value={newDescription}
+                onChange={e => setNewDescription(e.target.value)}
+                placeholder="你想了解什么？"
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              />
             </div>
           </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowModal(false)
+                setNewTitle('')
+                setNewDescription('')
+              }}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleCreateTopic}
+              disabled={!newTitle.trim() || creating}
+            >
+              {creating ? '创建中...' : '创建'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

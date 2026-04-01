@@ -8,7 +8,14 @@ import ChatView from '@/components/Chat/ChatView'
 import KnowledgeMapView from '@/components/KnowledgeMap/KnowledgeMapView'
 import ConvergeCard from '@/components/Intervention/ConvergeCard'
 import TransitionCard from '@/components/Intervention/TransitionCard'
-import BookmarkToast from '@/components/Intervention/BookmarkToast'
+import { toast } from 'sonner'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Button } from '@/components/ui/button'
 
 type ViewMode = 'chat' | 'graph'
 
@@ -30,10 +37,9 @@ export default function TopicPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [loading, setLoading] = useState(true)
   const [intervention, setIntervention] = useState<InterventionState>({ type: null, content: null })
-  const [showBookmarkToast, setShowBookmarkToast] = useState(false)
-  const [bookmarkContent, setBookmarkContent] = useState<{ title: string; description: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [retryMessage, setRetryMessage] = useState<string | null>(null)
+  const [reasoningText, setReasoningText] = useState<string>('')
   const failedMessageRef = useRef<string>('')
 
   useEffect(() => {
@@ -153,12 +159,18 @@ export default function TopicPage() {
     }
     setMessages(prev => [...prev, tempUserMsg])
 
+    // 清除之前的 reasoning
+    setReasoningText('')
+
     // 调用流式 API
     await sendMessage(
       currentConversation.id,
       topicId,
       content,
       {
+        onReasoning: (text) => {
+          setReasoningText(prev => prev + text)
+        },
         onContent: (text) => {
           // 流式更新 AI 消息
           setMessages(prev => {
@@ -187,11 +199,10 @@ export default function TopicPage() {
         },
         onIntervention: (data) => {
           if (data.type === 'bookmark') {
-            setBookmarkContent({
-              title: data.content.bookmark_title || '',
+            toast(data.content.bookmark_title || '已加入书签', {
               description: data.content.bookmark_description || '',
+              duration: 5000,
             })
-            setShowBookmarkToast(true)
           } else if (data.type === 'converge' || data.type === 'transition') {
             setIntervention({ type: data.type, content: data.content })
           }
@@ -328,12 +339,19 @@ export default function TopicPage() {
                       }`}
                     >
                       <span className="truncate text-sm flex-1 mr-2">{conv.title}</span>
-                      <button
-                        onClick={(e) => handleDeleteConversation(e, conv.id)}
-                        className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 text-xs"
-                      >
-                        ···
-                      </button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger className="opacity-0 group-hover:opacity-100 h-6 w-6 p-0 rounded-md hover:bg-gray-100">
+                          ···
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={(e) => handleDeleteConversation(e, conv.id)}
+                            className="text-destructive"
+                          >
+                            删除对话
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   ))}
                 </div>
@@ -373,6 +391,8 @@ export default function TopicPage() {
             <ChatView
               topicTitle={topic.title}
               messages={messages}
+              reasoningText={reasoningText}
+              isStreaming={messages.some(m => m.id.startsWith('temp-ai-'))}
               onSendMessage={handleSendMessage}
               retryMessage={retryMessage}
               onRetry={handleRetry}
@@ -404,13 +424,6 @@ export default function TopicPage() {
             </div>
           )}
 
-          {showBookmarkToast && bookmarkContent && (
-            <BookmarkToast
-              bookmarkTitle={bookmarkContent.title}
-              bookmarkDescription={bookmarkContent.description}
-              onDismiss={() => setShowBookmarkToast(false)}
-            />
-          )}
         </main>
       </div>
     </div>

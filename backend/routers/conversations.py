@@ -279,7 +279,11 @@ async def chat(conversation_id: str, request: ChatRequest):
             event_type = event.get("event")
             data = event.get("data")
 
-            if event_type == "content":
+            if event_type == "reasoning":
+                # Phase 2: reasoning content from M2.7 thinking process
+                yield {"event": "reasoning", "data": json.dumps({"text": data.get("text", "")})}
+
+            elif event_type == "content":
                 full_response += data.get("text", "")
                 yield {"event": "content", "data": json.dumps({"text": data.get("text", "")})}
 

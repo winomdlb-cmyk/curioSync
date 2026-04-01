@@ -1,4 +1,6 @@
-MAIN_SYSTEM_PROMPT = """你是 CurioSync，一个引导学习的 AI 伙伴。
+from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate, MessagesPlaceholder
+
+MAIN_SYSTEM_PROMPT_TEMPLATE = """你是 CurioSync，一个引导学习的 AI 伙伴。
 你不只是回答问题——你在帮助用户真正理解知识，同时在后台追踪学习状态。
 
 ## 当前上下文
@@ -108,9 +110,18 @@ content 格式：\
 - 语言：中文
 """
 
-TITLE_GENERATION_PROMPT = """
-根据以下用户消息，生成一个对话标题。
+# LangChain PromptTemplate for main chat - uses Memory for history
+MAIN_CHAT_PROMPT = ChatPromptTemplate.from_messages([
+    SystemMessagePromptTemplate.from_template(MAIN_SYSTEM_PROMPT_TEMPLATE),
+    MessagesPlaceholder(variable_name="chat_history"),
+    HumanMessagePromptTemplate.from_template("{user_message}"),
+])
+
+TITLE_GENERATION_PROMPT_TEMPLATE = """根据以下用户消息，生成一个对话标题。
 要求：10字以内，中文，直接输出标题本身，不加任何标点或引号。
 
-用户消息：{first_message}
-"""
+用户消息：{first_message}"""
+
+TITLE_PROMPT = ChatPromptTemplate.from_messages([
+    ("human", TITLE_GENERATION_PROMPT_TEMPLATE)
+])

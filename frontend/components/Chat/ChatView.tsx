@@ -4,21 +4,23 @@ import { useState, useRef, useEffect } from 'react'
 import { Message } from '@/lib/types'
 import MessageBubble from './MessageBubble'
 import InputBar from './InputBar'
+import { Reasoning } from '@/components/assistant-ui/reasoning'
 
 interface ChatViewProps {
   topicTitle: string
   messages: Message[]
+  reasoningText?: string
+  isStreaming?: boolean
   onSendMessage: (content: string) => void
   retryMessage?: string | null
   onRetry?: () => void
 }
 
-export default function ChatView({ topicTitle, messages, onSendMessage, retryMessage, onRetry }: ChatViewProps) {
+export default function ChatView({ topicTitle, messages, reasoningText = '', isStreaming = false, onSendMessage, retryMessage, onRetry }: ChatViewProps) {
   const [inputValue, setInputValue] = useState('')
-  const [isStreaming, setIsStreaming] = useState(false)
   const [isAIThinking, setIsAIThinking] = useState(false) // 刚发送还未开始输出
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const isStreamingRef = useRef(false)
+  const isStreamingRef = useRef(isStreaming)
 
   useEffect(() => {
     const hasTempAI = messages.some(
@@ -27,11 +29,11 @@ export default function ChatView({ topicTitle, messages, onSendMessage, retryMes
     const lastAssistant = messages.filter(m => m.role === 'assistant').pop()
     const hasContent = lastAssistant && lastAssistant.content.length > 0
 
-    isStreamingRef.current = hasTempAI
-    setIsStreaming(hasTempAI)
+    const streaming = hasTempAI || isStreaming
+    isStreamingRef.current = streaming
     // 刚发送（temp消息存在）但还没有内容时，显示"思考中"
-    setIsAIThinking(hasTempAI && !hasContent)
-  }, [messages])
+    setIsAIThinking(streaming && !hasContent)
+  }, [messages, isStreaming])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -68,13 +70,29 @@ export default function ChatView({ topicTitle, messages, onSendMessage, retryMes
           </div>
         ) : (
           <div className="max-w-3xl mx-auto space-y-4">
-            {messages.map((message, index) => (
-              <MessageBubble
-                key={message.id}
-                message={message}
-                isStreaming={isStreamingRef.current && index === messages.length - 1 && message.role === 'assistant'}
-              />
-            ))}
+            {messages.map((message, index) => {
+              const isLastAssistantMessage = isStreamingRef.current && index === messages.length - 1 && message.role === 'assistant'
+              return (
+                <div key={message.id}>
+                  {isLastAssistantMessage && reasoningText && (
+                    <Reasoning.Root defaultOpen={true}>
+                      <Reasoning.Trigger active={isStreaming} />
+                      <Reasoning.Content>
+                        <Reasoning.Text>
+                          <div className="text-muted-foreground text-sm">
+                            {reasoningText}
+                          </div>
+                        </Reasoning.Text>
+                      </Reasoning.Content>
+                    </Reasoning.Root>
+                  )}
+                  <MessageBubble
+                    message={message}
+                    isStreaming={isLastAssistantMessage}
+                  />
+                </div>
+              )
+            })}
             <div ref={messagesEndRef} />
           </div>
         )}

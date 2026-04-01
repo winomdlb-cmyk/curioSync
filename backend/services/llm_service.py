@@ -1,14 +1,51 @@
 import os
 import json
 import asyncio
-from typing import AsyncGenerator, Optional
+import re
+from typing import AsyncGenerator, Optional, Dict, List
 from langchain_openai import ChatOpenAI
 from langchain_core.output_parsers import JsonOutputParser
-from langchain_core.prompts import PromptTemplate
-from langchain_core.runnables import RunnableConfig
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from dotenv import load_dotenv
 
+from prompts.templates import MAIN_CHAT_PROMPT, TITLE_PROMPT
+
 load_dotenv()
+
+
+class SimpleChatMessageHistory:
+    """Simple chat message history that matches langchain's BaseChatMessageHistory interface"""
+
+    def __init__(self):
+        self.messages: List[BaseMessage] = []
+
+    def add_user_message(self, message: str):
+        self.messages.append(HumanMessage(content=message))
+
+    def add_ai_message(self, message: str):
+        self.messages.append(AIMessage(content=message))
+
+    def clear(self):
+        self.messages = []
+
+
+class SimpleConversationBufferMemory:
+    """
+    Simple conversation buffer memory that matches langchain's memory interface.
+    Used to work with LangChain's MessagesPlaceholder in prompts.
+    """
+
+    def __init__(self, memory_key: str = "chat_history", return_messages: bool = True, k: int = 10):
+        self.memory_key = memory_key
+        self.return_messages = return_messages
+        self.k = k
+        self.chat_memory = SimpleChatMessageHistory()
+
+    def load_memory_variables(self, inputs: Optional[Dict] = None) -> Dict:
+        """Load memory variables for prompt formatting"""
+        if self.return_messages:
+            return {self.memory_key: self.chat_memory.messages}
+        return {}
 
 
 class LLMService:
@@ -18,152 +55,37 @@ class LLMService:
             model=os.getenv("MINIMAX_MODEL", "MiniMax-M2.7-highspeed"),
             api_key=os.getenv("MINIMAX_API_KEY", ""),
             streaming=True,
-            extra_body={
-                "thinking": {
-                    "type": "disabled"
-                }
-            }
+            # Phase 2: Enable M2.7 thinking (removed thinking: disabled)
         )
 
-        # 创建 JSON 输出解析器
+        # JSON output parser (already using LangChain)
         self.json_parser = JsonOutputParser()
 
-    def _build_prompt(
-        self,
-        topic_title: str,
-        topic_description: str,
-        turn_count: int,
-        topic_chain: list,
-        divergence_score: float,
-        last_intervention: str,
-        conversation_history: list,
-        user_message: str,
-    ) -> str:
-        """构建完整的对话 Prompt"""
+        # Memory storage per conversation
+        self._memory_store: Dict[str, SimpleConversationBufferMemory] = {}
 
-        # 构建 topic_chain 显示
-        topic_chain_display = " → ".join(topic_chain[-5:]) if topic_chain else "暂无"
+    def _get_memory(self, conversation_id: str) -> SimpleConversationBufferMemory:
+        """Get or create memory for a conversation"""
+        if conversation_id not in self._memory_store:
+            self._memory_store[conversation_id] = SimpleConversationBufferMemory(
+                memory_key="chat_history",
+                return_messages=True,
+                k=10  # Keep last 10 messages (5 turns)
+            )
+        return self._memory_store[conversation_id]
 
-        # 构建对话历史
-        history_prompt = ""
-        for msg in conversation_history[-20:]:
-            role = "用户" if msg["role"] == "user" else "助手"
-            history_prompt += f"{role}：{msg['content']}\n"
-
-        # 注入变量到 prompt
-        prompt = f"""你是 CurioSync，一个引导学习的 AI 伙伴。
-你不只是回答问题——你在帮助用户真正理解知识，同时在后台追踪学习状态。
-
-## 当前上下文
-
-主题：{topic_title}
-主题描述：{topic_description}
-对话轮次：{turn_count}
-话题链（最近探索的话题，按时间顺序）：{topic_chain_display}
-当前发散程度：{divergence_score}（0-1，越高表示话题越分散）
-上次介入类型：{last_intervention}（none 表示尚未介入）
-
-## 对话历史
-
-{history_prompt}
-
-## 当前对话
-
-用户：{user_message}
-
-## 输出格式要求
-
-你必须严格按照以下 JSON 格式输出，不要输出任何 JSON 以外的内容：
-
-{{
-  "answer": "对用户问题的完整回答。要有教学引导感，适当用类比和例子，适当引发思考。中文。长度适中。",
-
-  "observation": {{
-    "new_topic": "本轮对话引入的核心新话题（一个词或短语，没有则填 null）",
-    "divergence_delta": 0.05,
-    "mastery_signal": "asking_basic | asking_why | applying | explaining",
-    "mastery_topic": "本轮判断掌握度所针对的知识点名称"
-  }},
-
-  "knowledge_extraction": {{
-    "new_nodes": [
-      {{"label": "知识点名称（4-8字）", "description": "一句话描述这个概念"}}
-    ],
-    "new_edges": [
-      {{
-        "source_label": "知识点A",
-        "target_label": "知识点B",
-        "relation": "关系描述（如：是...的基础、导致、包含）"
-      }}
-    ],
-    "nodes_to_update": [
-      {{"label": "知识点名称", "mastery_level": "EXPOSED | UNDERSTOOD"}}
-    ]
-  }},
-
-  "intervention": {{
-    "should_intervene": false,
-    "type": "none | converge | transition | bookmark",
-    "content": {{}}
-  }}
-}}
-
-## 介入判断规则
-
-### 不介入时
-
-{{ "should_intervene": false, "type": "none", "content": {{}} }}
-
-### converge（收敛聚焦）
-
-触发条件（满足其一）：
-- turn_count >= 8 且 divergence_score > 0.6
-- turn_count >= 12 且 divergence_score > 0.4
-- topic_chain 中不同话题数量 > 6
-
-content 格式：
-{{
-"summary": "到目前为止，我们聊到了...（2-3句话的小结）",
-"options": ["继续探索", "整理一下"]
-}}
-
-### transition（阶段跃迁）
-
-触发条件（同时满足）：
-- 同一话题连续探讨 >= 3 轮
-- 用户提问方式从"是什么"转向延伸性的"那...呢"
-- divergence_delta < 0.15（话题聚焦）
-- 距离上次介入 >= 5 轮
-
-content 格式：
-{{
-"stage_summary": "关于[当前话题]，你已经理解了...（一句话）",
-"next_directions": [
-{{"label": "方向名称", "description": "一句话说明为什么值得探索"}},
-{{"label": "方向名称", "description": "一句话说明为什么值得探索"}}
-]
-}}
-
-### bookmark（书签记录）
-
-触发条件：
-- 用户表达出对某个话题的兴趣（含"好奇""想了解""以后""这个"等表述）
-- 且该话题预计与主线偏离较大（divergence_delta > 0.3）
-
-content 格式：
-{{
-"bookmark_title": "书签标题（5-10字）",
-"bookmark_description": "为什么记录这个（一句话）"
-}}
-
-## 回答质量要求
-
-- 教学引导感：不只给答案，适当引发用户思考
-- 类比优先：用生活中的例子让抽象概念具体化
-- 长度克制：不要超过 300 字
-- 语言：中文
-"""
-        return prompt
+    def _load_history_to_memory(
+        self, conversation_id: str, conversation_history: list
+    ):
+        """Load conversation history from database into memory"""
+        memory = self._get_memory(conversation_id)
+        # Clear existing memory and reload from database
+        memory.chat_memory.clear()
+        for msg in conversation_history[-20:]:  # Load last 20 messages
+            if msg["role"] == "user":
+                memory.chat_memory.add_user_message(msg["content"])
+            elif msg["role"] == "assistant":
+                memory.chat_memory.add_ai_message(msg["content"])
 
     async def chat_stream(
         self,
@@ -176,83 +98,115 @@ content 格式：
         conversation_state: dict,
     ) -> AsyncGenerator[dict, None]:
         """
-        完整对话流程：
-        1. 构造 Prompt
-        2. 调用 LLM，流式返回
-        3. 解析结构化 JSON 响应（使用 JsonOutputParser）
-        4. yield 不同类型的 SSE 事件
+        Complete chat flow using LangChain PromptTemplate + Memory:
+        1. Load history into ConversationBufferMemory
+        2. Build messages using MAIN_CHAT_PROMPT with Memory integration
+        3. Stream response from LLM
+        4. Parse structured JSON response
         """
-        # 构建 topic_chain 显示
+        # Get conversation state
         topic_chain = conversation_state.get("topic_chain", [])
         divergence_score = conversation_state.get("divergence_score", 0)
         turn_count = conversation_state.get("turn_count", 0)
         last_intervention = conversation_state.get("last_intervention", "none")
 
-        # 构造 prompt
-        full_prompt = self._build_prompt(
-            topic_title=topic_title,
-            topic_description=topic_description or "",
-            turn_count=turn_count,
-            topic_chain=topic_chain,
-            divergence_score=divergence_score,
-            last_intervention=last_intervention,
-            conversation_history=conversation_history,
-            user_message=user_message,
-        )
+        # Build topic_chain display
+        topic_chain_display = " → ".join(topic_chain[-5:]) if topic_chain else "暂无"
 
-        # 流式输出 content，同时收集完整响应
+        # Load history into memory
+        self._load_history_to_memory(conversation_id, conversation_history)
+
+        # Build messages using PromptTemplate with memory
+        # Pass chat_history from memory to properly resolve MessagesPlaceholder
+        memory = self._get_memory(conversation_id)
+        input_for_prompt = {
+            "topic_title": topic_title,
+            "topic_description": topic_description or "",
+            "turn_count": turn_count,
+            "topic_chain": topic_chain_display,
+            "divergence_score": divergence_score,
+            "last_intervention": last_intervention,
+            "user_message": user_message,
+            "chat_history": memory.chat_memory.messages,  # Resolves MessagesPlaceholder
+        }
+
+        # Use invoke() to properly resolve MessagesPlaceholder
+        prompt_result = MAIN_CHAT_PROMPT.invoke(input_for_prompt)
+        messages = prompt_result.to_messages()
+
+        # Accumulate full response for JSON parsing
         accumulated = ""
 
-        # 思考内容过滤正则
-        think_start = __import__('re').compile(r'<think>')
-        think_end = __import__('re').compile(r'</think>')
+        # Streaming with <think> filtering
+        think_start = re.compile(r'<think>')
+        think_end = re.compile(r'</think>')
         in_thinking = False
 
         try:
-            async for chunk in self.llm.astream(full_prompt):
+            async for chunk in self.llm.astream(messages):
                 if chunk.content:
                     text = chunk.content
 
-                    # 查找思考开始
+                    # Phase 2: Separate reasoning content from final answer
                     if not in_thinking:
                         start_match = think_start.search(text)
                         if start_match:
-                            # 输出开始之前的内容
+                            # Content before <think> is final answer
                             before = text[:start_match.start()]
                             if before:
                                 accumulated += before
                                 yield {"event": "content", "data": {"text": before}}
+
+                            # Process thinking content after <think>
                             in_thinking = True
+                            think_text = text[start_match.end():]
+                            end_match = think_end.search(think_text)
+                            if end_match:
+                                # <think> and </think> are in the same chunk
+                                in_thinking = False
+                                thinking_content = think_text[:end_match.start()]
+                                if thinking_content:
+                                    yield {"event": "reasoning", "data": {"text": thinking_content}}
+                                # Content after </think> is final answer
+                                after_think = think_text[end_match.end():]
+                                if after_think:
+                                    accumulated += after_think
+                                    yield {"event": "content", "data": {"text": after_think}}
+                            else:
+                                # Only <think> in this chunk, </think> will come later
+                                if think_text:
+                                    yield {"event": "reasoning", "data": {"text": think_text}}
                         else:
-                            # 没有思考开始，直接输出
+                            # No thinking in this chunk - it's content
                             accumulated += text
                             yield {"event": "content", "data": {"text": text}}
                     else:
-                        # 正在思考中，查找思考结束
+                        # We're inside <think> block, looking for </think>
                         end_match = think_end.search(text)
                         if end_match:
-                            # 思考结束，处理结束后的内容
+                            # Thinking ends in this chunk
                             in_thinking = False
+                            thinking_content = text[:end_match.start()]
+                            if thinking_content:
+                                yield {"event": "reasoning", "data": {"text": thinking_content}}
+                            # Content after </think> is final answer
                             after_think = text[end_match.end():]
                             if after_think:
                                 accumulated += after_think
                                 yield {"event": "content", "data": {"text": after_think}}
-                        # else: 仍在思考中，直接丢弃
+                        else:
+                            # Still inside <think> - send as reasoning event
+                            yield {"event": "reasoning", "data": {"text": text}}
 
         except Exception as e:
             yield {"event": "error", "data": {"message": str(e)}}
             return
 
-        # 使用 JsonOutputParser 解析完整响应
+        # Parse JSON response using LangChain JsonOutputParser
         try:
-            # 清理响应：去除思考内容
             clean_response = accumulated.strip()
 
-            # 去除思考内容 (<think>...</think>)
-            import re
-            clean_response = re.sub(r'<think>.*?</think>', '', clean_response, flags=re.DOTALL)
-
-            # 提取 JSON 对象
+            # Extract JSON object
             first_brace = clean_response.find('{')
             last_brace = clean_response.rfind('}')
             if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
@@ -262,13 +216,17 @@ content 格式：
             elif "```" in clean_response:
                 json_str = clean_response.split("```")[1].split("```")[0]
             else:
-                # 没有找到 JSON 格式，使用原始响应
                 raise ValueError("No JSON found in response")
 
-            # 使用 LangChain JsonOutputParser 解析（它能正确处理转义字符）
+            # Use LangChain JsonOutputParser
             response = self.json_parser.parse(json_str.strip())
 
-            # yield knowledge_extraction for graph update
+            # Update memory with new exchange
+            memory = self._get_memory(conversation_id)
+            memory.chat_memory.add_user_message(user_message)
+            memory.chat_memory.add_ai_message(response.get("answer", ""))
+
+            # Yield knowledge_extraction for graph update
             knowledge_extraction = response.get("knowledge_extraction", {})
             if knowledge_extraction.get("new_nodes") or knowledge_extraction.get("nodes_to_update"):
                 yield {
@@ -276,7 +234,7 @@ content 格式：
                     "data": knowledge_extraction,
                 }
 
-            # yield node_hint (for frontend display)
+            # Yield node_hint
             new_nodes = knowledge_extraction.get("new_nodes", [])
             updated_nodes = knowledge_extraction.get("nodes_to_update", [])
             if new_nodes or updated_nodes:
@@ -288,7 +246,7 @@ content 格式：
                     },
                 }
 
-            # yield intervention
+            # Yield intervention
             intervention = response.get("intervention", {})
             if intervention.get("should_intervene"):
                 yield {
@@ -299,30 +257,30 @@ content 格式：
                     },
                 }
 
-            # yield observation for state update
+            # Yield observation
             yield {"event": "observation", "data": response.get("observation", {})}
 
         except Exception as e:
-            # 解析失败，降级为纯文本模式（answer 已经在流式输出中）
-            # 只记录错误，不影响流程
+            # JSON parse failed, fall back to text mode
             import logging
             logging.warning(f"JSON parse failed: {e}, falling back to text mode")
+
+            # Still update memory with raw response
+            memory = self._get_memory(conversation_id)
+            memory.chat_memory.add_user_message(user_message)
+            memory.chat_memory.add_ai_message(accumulated)
 
         yield {"event": "done", "data": {"message_id": "", "title_updated": False}}
 
     async def generate_title(self, first_message: str) -> str:
-        """生成对话标题，10字以内"""
-        prompt = f"""根据以下用户消息，生成一个对话标题。
-要求：10字以内，中文，直接输出标题本身，不加任何标点或引号。
-
-用户消息：{first_message}"""
-
+        """Generate conversation title using LangChain PromptTemplate, 10 chars or less"""
         try:
-            response = await self.llm.ainvoke(prompt)
+            # Use TITLE_PROMPT from templates
+            messages = TITLE_PROMPT.format_messages(first_message=first_message)
+            response = await self.llm.ainvoke(messages)
             raw_title = response.content.strip()
 
-            # 过滤 LLM 思考内容
-            import re
+            # Remove <think> blocks
             clean_title = re.sub(r'<think>.*?</think>', '', raw_title, flags=re.DOTALL).strip()
 
             title = clean_title[:10] if clean_title else "新对话"

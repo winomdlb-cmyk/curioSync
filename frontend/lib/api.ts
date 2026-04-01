@@ -1,6 +1,7 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 
 export interface StreamCallbacks {
+  onReasoning: (text: string) => void
   onContent: (text: string) => void
   onNodeHint: (nodes: { new_nodes: any[]; updated_nodes: any[] }) => void
   onIntervention: (data: { type: string; content: any }) => void
@@ -114,6 +115,9 @@ export async function sendMessage(
         try {
           const data = JSON.parse(line.slice(6))
           switch (currentEvent) {
+            case 'reasoning':
+              callbacks.onReasoning(data.text)
+              break
             case 'content':
               callbacks.onContent(data.text)
               break
