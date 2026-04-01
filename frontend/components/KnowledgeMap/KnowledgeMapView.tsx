@@ -97,7 +97,7 @@ export default function KnowledgeMapView({ topicId }: KnowledgeMapViewProps) {
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="text-gray-500">加载图谱中...</div>
+        <div className="text-[--color-muted-foreground]">加载图谱中...</div>
       </div>
     )
   }
@@ -105,7 +105,7 @@ export default function KnowledgeMapView({ topicId }: KnowledgeMapViewProps) {
   if (nodes.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="text-center text-gray-400">
+        <div className="text-center text-[--color-muted-foreground]">
           <div className="text-lg mb-2">开始对话后，知识图谱会在这里自动生长 ✦</div>
         </div>
       </div>
@@ -132,12 +132,12 @@ export default function KnowledgeMapView({ topicId }: KnowledgeMapViewProps) {
 
       {/* Node Detail Panel */}
       {selectedNode && (
-        <div className="absolute right-4 top-4 w-72 bg-white rounded-xl shadow-lg border border-gray-200 p-4">
+        <div className="absolute right-4 top-4 w-72 bg-[--color-card] rounded-xl shadow-lg border border-[--color-border] p-4">
           <div className="flex items-start justify-between mb-2">
-            <h3 className="font-semibold text-gray-900">{(selectedNode.data as any).label}</h3>
+            <h3 className="font-semibold text-[--color-foreground]">{(selectedNode.data as any).label}</h3>
             <button
               onClick={() => setSelectedNodeId(null)}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-[--color-muted-foreground] hover:text-[--color-foreground]"
             >
               ×
             </button>
@@ -148,43 +148,43 @@ export default function KnowledgeMapView({ topicId }: KnowledgeMapViewProps) {
                 ? 'bg-blue-100 text-blue-700'
                 : (selectedNode.data as any).masteryLevel === 'EXPOSED'
                 ? 'bg-blue-50 text-blue-600'
-                : 'bg-gray-100 text-gray-600'
+                : 'bg-[--color-muted] text-[--color-muted-foreground]'
             }`}>
               {(selectedNode.data as any).masteryLevel === 'UNDERSTOOD' ? '● 已理解' :
                (selectedNode.data as any).masteryLevel === 'EXPOSED' ? '◑ 有印象' : '○ 接触过'}
             </span>
           </div>
           {(selectedNode.data as any).description && (
-            <p className="text-sm text-gray-600">{(selectedNode.data as any).description}</p>
+            <p className="text-sm text-[--color-muted-foreground]">{(selectedNode.data as any).description}</p>
           )}
 
           {/* Related Conversations */}
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <h4 className="text-sm font-medium text-gray-700 mb-2">相关对话</h4>
+          <div className="mt-4 pt-4 border-t border-[--color-border]">
+            <h4 className="text-sm font-medium text-[--color-foreground] mb-2">相关对话</h4>
             {loadingRelated ? (
-              <div className="text-xs text-gray-400">加载中...</div>
+              <div className="text-xs text-[--color-muted-foreground]">加载中...</div>
             ) : relatedConversations.length > 0 ? (
               <div className="space-y-2">
                 {relatedConversations.map(conv => (
                   <a
                     key={conv.id}
                     href={`/topic/${topicId}?conversation=${conv.id}`}
-                    className="block text-xs p-2 rounded bg-gray-50 hover:bg-gray-100 transition-colors"
+                    className="block text-xs p-2 rounded bg-[--color-muted] hover:bg-[--color-accent] transition-colors"
                   >
-                    <div className="font-medium text-gray-800 truncate">{conv.title}</div>
-                    <div className="text-gray-500 truncate">{conv.snippet}</div>
+                    <div className="font-medium text-[--color-foreground] truncate">{conv.title}</div>
+                    <div className="text-[--color-muted-foreground] truncate">{conv.snippet}</div>
                   </a>
                 ))}
               </div>
             ) : (
-              <div className="text-xs text-gray-400">暂无相关对话</div>
+              <div className="text-xs text-[--color-muted-foreground]">暂无相关对话</div>
             )}
           </div>
         </div>
       )}
 
       {/* Legend */}
-      <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-sm border border-gray-200 px-3 py-2 text-xs text-gray-500 flex gap-4">
+      <div className="absolute bottom-4 left-4 bg-[--color-card] rounded-lg shadow-sm border border-[--color-border] px-3 py-2 text-xs text-[--color-muted-foreground] flex gap-4">
         <span>● 已理解</span>
         <span>◑ 有印象</span>
         <span>○ 接触过</span>

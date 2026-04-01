@@ -19,19 +19,19 @@ export default function TransitionCard({
   onDismiss,
 }: TransitionCardProps) {
   return (
-    <div className="bg-white rounded-xl shadow-lg p-5 max-w-md mx-auto border border-gray-100">
+    <div className="bg-[--color-card] rounded-xl shadow-lg p-5 max-w-md mx-auto border border-[--color-border]">
       <div className="flex items-start gap-3 mb-4">
         <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0">
           <span className="text-green-600 text-sm">→</span>
         </div>
         <div>
-          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+          <h3 className="text-sm font-medium text-[--color-muted-foreground] uppercase tracking-wide">
             阶段跃迁
           </h3>
         </div>
       </div>
 
-      <p className="text-gray-700 text-sm leading-relaxed mb-5">
+      <p className="text-[--color-foreground] text-sm leading-relaxed mb-5">
         {stageSummary}
       </p>
 
@@ -40,17 +40,17 @@ export default function TransitionCard({
           <button
             key={index}
             onClick={() => onDirectionClick?.(direction.label)}
-            className="w-full text-left p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all group"
+            className="w-full text-left p-3 rounded-lg border border-[--color-border] hover:border-[--color-primary] hover:bg-[--color-accent] transition-all group"
           >
             <div className="flex items-center justify-between">
-              <span className="font-medium text-gray-800 group-hover:text-blue-700">
+              <span className="font-medium text-[--color-foreground] group-hover:text-[--color-primary]">
                 {direction.label}
               </span>
-              <span className="text-xs text-gray-400 group-hover:text-blue-500">
+              <span className="text-xs text-[--color-muted-foreground] group-hover:text-[--color-primary]">
                 →
               </span>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-[--color-muted-foreground] mt-1">
               {direction.description}
             </p>
           </button>
@@ -60,7 +60,7 @@ export default function TransitionCard({
       {onDismiss && (
         <button
           onClick={onDismiss}
-          className="mt-2 text-xs text-gray-400 hover:text-gray-600 w-full text-center"
+          className="mt-2 text-xs text-[--color-muted-foreground] hover:text-[--color-foreground] w-full text-center"
         >
           暂时跳过
         </button>

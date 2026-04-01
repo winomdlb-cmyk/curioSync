@@ -116,7 +116,7 @@ async function visualReview() {
     console.log(files);
 
   } catch (error) {
-    console.error('Error:', error.message);
+    console.error('Error:', error instanceof Error ? error.message : error);
     await page.screenshot({ path: `${SCREENSHOT_DIR}/error.png` }).catch(() => {});
   } finally {
     await browser.close();

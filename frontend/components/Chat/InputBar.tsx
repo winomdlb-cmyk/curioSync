@@ -31,14 +31,14 @@ export default function InputBar({ value, onChange, onSend, disabled, isThinking
   }
 
   return (
-    <div className="border-t border-gray-200 bg-white px-4 py-3">
+    <div className="border-t border-[--color-border] bg-[--color-background] px-4 py-3">
       {retryMessage && (
         <div className="max-w-3xl mx-auto mb-2">
-          <div className="flex items-center gap-2 text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          <div className="flex items-center gap-2 text-xs text-[--color-destructive] bg-[--color-destructive]/10 border border-[--color-destructive]/20 rounded-lg px-3 py-2">
             <span>⚠ AI 回复失败</span>
             <button
               onClick={onRetry}
-              className="ml-auto text-blue-600 hover:text-blue-700 font-medium"
+              className="ml-auto text-[--color-primary] hover:opacity-80 font-medium"
             >
               重试
             </button>
@@ -47,7 +47,7 @@ export default function InputBar({ value, onChange, onSend, disabled, isThinking
       )}
       {isThinking && (
         <div className="max-w-3xl mx-auto mb-2">
-          <div className="flex items-center gap-2 text-xs text-gray-400">
+          <div className="flex items-center gap-2 text-xs text-[--color-muted-foreground]">
             <span className="animate-pulse">AI 正在思考中...</span>
           </div>
         </div>
@@ -64,13 +64,13 @@ export default function InputBar({ value, onChange, onSend, disabled, isThinking
           placeholder="问点什么吧..."
           disabled={disabled}
           rows={1}
-          className="flex-1 px-4 py-3 bg-gray-100 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-sm max-h-[120px] overflow-y-auto"
+          className="flex-1 px-4 py-3 bg-[--color-muted] rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-[--color-ring] disabled:opacity-50 text-[--color-foreground] text-sm max-h-[120px] overflow-y-auto"
           style={{ minHeight: '48px' }}
         />
         <button
           onClick={onSend}
           disabled={!value.trim() || disabled}
-          className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+          className="w-10 h-10 bg-[--color-primary] text-[--color-primary-foreground] rounded-full flex items-center justify-center hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
         >
           ↑
         </button>

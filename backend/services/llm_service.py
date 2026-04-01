@@ -55,10 +55,9 @@ class LLMService:
             model=os.getenv("MINIMAX_MODEL", "MiniMax-M2.7-highspeed"),
             api_key=os.getenv("MINIMAX_API_KEY", ""),
             streaming=True,
-            # Phase 2: Enable M2.7 thinking (removed thinking: disabled)
         )
 
-        # JSON output parser (already using LangChain)
+        # JSON output parser
         self.json_parser = JsonOutputParser()
 
         # Memory storage per conversation
@@ -70,7 +69,7 @@ class LLMService:
             self._memory_store[conversation_id] = SimpleConversationBufferMemory(
                 memory_key="chat_history",
                 return_messages=True,
-                k=10  # Keep last 10 messages (5 turns)
+                k=10
             )
         return self._memory_store[conversation_id]
 
@@ -79,9 +78,8 @@ class LLMService:
     ):
         """Load conversation history from database into memory"""
         memory = self._get_memory(conversation_id)
-        # Clear existing memory and reload from database
         memory.chat_memory.clear()
-        for msg in conversation_history[-20:]:  # Load last 20 messages
+        for msg in conversation_history[-20:]:
             if msg["role"] == "user":
                 memory.chat_memory.add_user_message(msg["content"])
             elif msg["role"] == "assistant":
@@ -97,47 +95,44 @@ class LLMService:
         conversation_history: list,
         conversation_state: dict,
     ) -> AsyncGenerator[dict, None]:
-        """
-        Complete chat flow using LangChain PromptTemplate + Memory:
-        1. Load history into ConversationBufferMemory
-        2. Build messages using MAIN_CHAT_PROMPT with Memory integration
-        3. Stream response from LLM
-        4. Parse structured JSON response
-        """
-        # Get conversation state
-        topic_chain = conversation_state.get("topic_chain", [])
-        divergence_score = conversation_state.get("divergence_score", 0)
-        turn_count = conversation_state.get("turn_count", 0)
-        last_intervention = conversation_state.get("last_intervention", "none")
-
-        # Build topic_chain display
-        topic_chain_display = " → ".join(topic_chain[-5:]) if topic_chain else "暂无"
+        """Stream chat responses with structured output parsing"""
 
         # Load history into memory
         self._load_history_to_memory(conversation_id, conversation_history)
-
-        # Build messages using PromptTemplate with memory
-        # Pass chat_history from memory to properly resolve MessagesPlaceholder
         memory = self._get_memory(conversation_id)
-        input_for_prompt = {
+
+        # Get formatted history for prompt
+        chat_history = memory.chat_memory.messages
+        formatted_history = []
+        for msg in chat_history:
+            if isinstance(msg, HumanMessage):
+                formatted_history.append({"role": "user", "content": msg.content})
+            elif isinstance(msg, AIMessage):
+                formatted_history.append({"role": "assistant", "content": msg.content})
+
+        # Build prompt
+        turn_count = conversation_state.get("turn_count", 0)
+        topic_chain = conversation_state.get("topic_chain", [])
+        divergence_score = conversation_state.get("divergence_score", 0)
+        last_intervention = conversation_state.get("last_intervention", "none")
+
+        prompt = MAIN_CHAT_PROMPT.invoke({
+            "chat_history": formatted_history,
+            "user_message": user_message,
             "topic_title": topic_title,
-            "topic_description": topic_description or "",
+            "topic_description": topic_description or "无",
             "turn_count": turn_count,
-            "topic_chain": topic_chain_display,
+            "topic_chain": " -> ".join(topic_chain[-5:]) if topic_chain else "无",
             "divergence_score": divergence_score,
             "last_intervention": last_intervention,
-            "user_message": user_message,
-            "chat_history": memory.chat_memory.messages,  # Resolves MessagesPlaceholder
-        }
+        })
 
-        # Use invoke() to properly resolve MessagesPlaceholder
-        prompt_result = MAIN_CHAT_PROMPT.invoke(input_for_prompt)
-        messages = prompt_result.to_messages()
+        messages = prompt.to_messages()
 
-        # Accumulate full response for JSON parsing
+        # Accumulator for JSON parsing
         accumulated = ""
 
-        # Streaming with <think> filtering
+        # Regex patterns
         think_start = re.compile(r'<think>')
         think_end = re.compile(r'</think>')
         in_thinking = False
@@ -151,13 +146,12 @@ class LLMService:
                     if not in_thinking:
                         start_match = think_start.search(text)
                         if start_match:
-                            # Content before <think> is final answer
+                            # Content before <think> - buffer it
                             before = text[:start_match.start()]
                             if before:
                                 accumulated += before
-                                yield {"event": "content", "data": {"text": before}}
 
-                            # Process thinking content after <think>
+                            # Start thinking block
                             in_thinking = True
                             think_text = text[start_match.end():]
                             end_match = think_end.search(think_text)
@@ -167,21 +161,17 @@ class LLMService:
                                 thinking_content = think_text[:end_match.start()]
                                 if thinking_content:
                                     yield {"event": "reasoning", "data": {"text": thinking_content}}
-                                # Content after </think> is final answer
-                                after_think = think_text[end_match.end():]
-                                if after_think:
-                                    accumulated += after_think
-                                    yield {"event": "content", "data": {"text": after_think}}
+                                # Content after </think> - buffer for JSON parsing
+                                accumulated += think_text[end_match.end():]
                             else:
-                                # Only <think> in this chunk, </think> will come later
+                                # Only <think> in this chunk
                                 if think_text:
                                     yield {"event": "reasoning", "data": {"text": think_text}}
                         else:
-                            # No thinking in this chunk - it's content
+                            # No thinking markers - buffer as text
                             accumulated += text
-                            yield {"event": "content", "data": {"text": text}}
                     else:
-                        # We're inside <think> block, looking for </think>
+                        # We're inside <think> block
                         end_match = think_end.search(text)
                         if end_match:
                             # Thinking ends in this chunk
@@ -189,20 +179,17 @@ class LLMService:
                             thinking_content = text[:end_match.start()]
                             if thinking_content:
                                 yield {"event": "reasoning", "data": {"text": thinking_content}}
-                            # Content after </think> is final answer
-                            after_think = text[end_match.end():]
-                            if after_think:
-                                accumulated += after_think
-                                yield {"event": "content", "data": {"text": after_think}}
+                            # Content after </think> - buffer for JSON parsing
+                            accumulated += text[end_match.end():]
                         else:
-                            # Still inside <think> - send as reasoning event
+                            # Still inside <think> - send as reasoning
                             yield {"event": "reasoning", "data": {"text": text}}
 
         except Exception as e:
             yield {"event": "error", "data": {"message": str(e)}}
             return
 
-        # Parse JSON response using LangChain JsonOutputParser
+        # Parse JSON response and extract answer
         try:
             clean_response = accumulated.strip()
 
@@ -221,10 +208,14 @@ class LLMService:
             # Use LangChain JsonOutputParser
             response = self.json_parser.parse(json_str.strip())
 
+            # Stream the answer content
+            answer_text = response.get("answer", "")
+            if answer_text:
+                yield {"event": "content", "data": {"text": answer_text}}
+
             # Update memory with new exchange
-            memory = self._get_memory(conversation_id)
             memory.chat_memory.add_user_message(user_message)
-            memory.chat_memory.add_ai_message(response.get("answer", ""))
+            memory.chat_memory.add_ai_message(answer_text)
 
             # Yield knowledge_extraction for graph update
             knowledge_extraction = response.get("knowledge_extraction", {})
@@ -261,21 +252,27 @@ class LLMService:
             yield {"event": "observation", "data": response.get("observation", {})}
 
         except Exception as e:
-            # JSON parse failed, fall back to text mode
+            # JSON parse failed - log and fallback
             import logging
             logging.warning(f"JSON parse failed: {e}, falling back to text mode")
 
-            # Still update memory with raw response
-            memory = self._get_memory(conversation_id)
+            # Try to extract any text before JSON
+            clean_response = accumulated.strip()
+            first_brace = clean_response.find('{')
+            if first_brace > 0:
+                text_content = clean_response[:first_brace].strip()
+                if text_content:
+                    yield {"event": "content", "data": {"text": text_content}}
+
+            # Update memory with raw response
             memory.chat_memory.add_user_message(user_message)
-            memory.chat_memory.add_ai_message(accumulated)
+            memory.chat_memory.add_ai_message(clean_response)
 
         yield {"event": "done", "data": {"message_id": "", "title_updated": False}}
 
     async def generate_title(self, first_message: str) -> str:
         """Generate conversation title using LangChain PromptTemplate, 10 chars or less"""
         try:
-            # Use TITLE_PROMPT from templates
             messages = TITLE_PROMPT.format_messages(first_message=first_message)
             response = await self.llm.ainvoke(messages)
             raw_title = response.content.strip()

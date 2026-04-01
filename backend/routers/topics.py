@@ -22,9 +22,9 @@ supabase = get_supabase()
 
 
 @router.get("", response_model=TopicListResponse)
-async def get_topics():
-    """获取所有主题（优化：批量查询避免N+1问题）"""
-    result = supabase.table("topics").select("*").order("updated_at", desc=True).execute()
+async def get_topics(limit: int = 50, offset: int = 0):
+    """获取所有主题（优化：批量查询避免N+1问题，支持分页）"""
+    result = supabase.table("topics").select("*").order("updated_at", desc=True).range(offset, offset + limit - 1).execute()
 
     if not result.data:
         return TopicListResponse(topics=[])

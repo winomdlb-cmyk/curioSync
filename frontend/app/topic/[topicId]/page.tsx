@@ -243,27 +243,28 @@ export default function TopicPage() {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-500">加载中...</div>
+      <div className="h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-background)' }}>
+        <div className="text-[--color-muted-foreground]">加载中...</div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center bg-gray-50">
-        <div className="bg-red-50 border border-red-200 rounded-lg px-6 py-4 mb-4 max-w-md">
+      <div className="h-screen flex flex-col items-center justify-center" style={{ backgroundColor: 'var(--color-background)' }}>
+        <div className="rounded-lg px-6 py-4 mb-4 max-w-md" style={{ backgroundColor: 'color-mix(in oklch, var(--color-destructive) 10%, transparent)', borderWidth: '1px', borderStyle: 'solid', borderColor: 'color-mix(in oklch, var(--color-destructive) 20%, transparent)' }}>
           <div className="flex items-start gap-3">
-            <span className="text-red-500 text-lg">⚠</span>
+            <span style={{ color: 'var(--color-destructive)' }} className="text-lg">⚠</span>
             <div>
-              <p className="text-red-700 font-medium mb-1">出错了</p>
-              <p className="text-red-600 text-sm">{error}</p>
+              <p className="font-medium mb-1" style={{ color: 'var(--color-destructive)' }}>出错了</p>
+              <p className="text-sm" style={{ color: 'var(--color-destructive)', opacity: 0.8 }}>{error}</p>
             </div>
           </div>
         </div>
         <button
           onClick={loadTopicData}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="px-4 py-2 rounded-lg hover:opacity-90 transition-colors"
+          style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-primary-foreground)' }}
         >
           重试
         </button>
@@ -273,39 +274,46 @@ export default function TopicPage() {
 
   if (!topic) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-500">主题不存在</div>
+      <div className="h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-background)' }}>
+        <div className="text-[--color-muted-foreground]">主题不存在</div>
       </div>
     )
   }
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
+    <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--color-background)' }}>
       {/* Top Bar */}
-      <header className="h-14 bg-white border-b border-gray-200 flex items-center px-4 shrink-0">
+      <header className="h-14 flex items-center px-4 shrink-0" style={{ backgroundColor: 'var(--color-background)', borderBottom: '1px solid var(--color-border)' }}>
         <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors mr-2"
+          className="p-2 rounded-lg transition-colors mr-2"
+          style={{}}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-accent)'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
         >
           ≡
         </button>
-        <h1 className="text-lg font-semibold text-gray-900 truncate">{topic.title}</h1>
+        <h1 className="text-lg font-semibold truncate" style={{ color: 'var(--color-foreground)' }}>{topic.title}</h1>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <aside
-          className={`bg-white border-r border-gray-200 flex flex-col transition-all duration-200 h-full ${
+          className={`flex flex-col transition-all duration-200 h-full ${
             sidebarCollapsed ? 'w-12' : 'w-56'
           } shrink-0`}
+          style={{ backgroundColor: 'var(--color-sidebar)', borderRight: '1px solid var(--color-sidebar-border)' }}
         >
           {/* Sidebar Header */}
-          <div className={`p-3 border-b border-gray-200 ${sidebarCollapsed ? 'text-center' : ''}`}>
+          <div className={`p-3 ${sidebarCollapsed ? 'text-center' : ''}`} style={{ borderBottom: '1px solid var(--color-sidebar-border)' }}>
             {viewMode === 'chat' ? (
               <button
                 onClick={() => setViewMode('graph')}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 text-gray-600 ${sidebarCollapsed ? 'justify-center' : ''}`}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${sidebarCollapsed ? 'justify-center' : ''}`}
                 title="知识图谱"
+                style={{ color: 'var(--color-sidebar-foreground)' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-sidebar-accent)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               >
                 ◈
                 {!sidebarCollapsed && <span className="text-sm">知识图谱</span>}
@@ -313,8 +321,9 @@ export default function TopicPage() {
             ) : (
               <button
                 onClick={() => setViewMode('chat')}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors bg-blue-50 text-blue-600 ${sidebarCollapsed ? 'justify-center' : ''}`}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${sidebarCollapsed ? 'justify-center' : ''}`}
                 title="返回对话"
+                style={{ backgroundColor: 'var(--color-sidebar-accent)', color: 'var(--color-sidebar-accent-foreground)' }}
               >
                 ←
                 {!sidebarCollapsed && <span className="text-sm">返回对话</span>}
@@ -326,21 +335,25 @@ export default function TopicPage() {
           {!sidebarCollapsed && (
             <div className="flex-1 overflow-y-auto">
               <div className="px-3 py-2">
-                <div className="text-xs font-medium text-gray-400 uppercase mb-2">对话</div>
+                <div className="text-xs font-medium uppercase mb-2" style={{ color: 'var(--color-muted-foreground)' }}>对话</div>
                 <div className="space-y-1">
                   {conversations.map(conv => (
                     <div
                       key={conv.id}
                       onClick={() => handleSelectConversation(conv)}
                       className={`group flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                        currentConversation?.id === conv.id
-                          ? 'bg-blue-50 text-blue-600'
-                          : 'hover:bg-gray-100 text-gray-700'
+                        currentConversation?.id === conv.id ? '' : ''
                       }`}
+                      style={{
+                        backgroundColor: currentConversation?.id === conv.id ? 'var(--color-sidebar-accent)' : 'transparent',
+                        color: currentConversation?.id === conv.id ? 'var(--color-sidebar-accent-foreground)' : 'var(--color-sidebar-foreground)'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-sidebar-accent)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = currentConversation?.id === conv.id ? 'var(--color-sidebar-accent)' : 'transparent'}
                     >
                       <span className="truncate text-sm flex-1 mr-2">{conv.title}</span>
                       <DropdownMenu>
-                        <DropdownMenuTrigger className="opacity-0 group-hover:opacity-100 h-6 w-6 p-0 rounded-md hover:bg-gray-100">
+                        <DropdownMenuTrigger className="opacity-0 group-hover:opacity-100 h-6 w-6 p-0 rounded-md hover:bg-[--color-sidebar-accent]">
                           ···
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -360,13 +373,16 @@ export default function TopicPage() {
           )}
 
           {/* New Conversation Button */}
-          <div className={`p-3 border-t border-gray-200 ${sidebarCollapsed ? 'text-center' : ''}`}>
+          <div className={`p-3 ${sidebarCollapsed ? 'text-center' : ''}`} style={{ borderTop: '1px solid var(--color-sidebar-border)' }}>
             <button
               onClick={handleNewConversation}
-              className={`px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors ${
+              className={`px-3 py-2 text-sm rounded-lg transition-colors ${
                 sidebarCollapsed ? 'w-full' : ''
               }`}
               title="新建对话"
+              style={{ color: 'var(--color-primary)' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-sidebar-accent)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
               {sidebarCollapsed ? '+' : '+ 新建对话'}
             </button>
@@ -374,10 +390,13 @@ export default function TopicPage() {
 
           {/* Back to Home */}
           {!sidebarCollapsed && (
-            <div className="p-3 border-t border-gray-200">
+            <div className="p-3" style={{ borderTop: '1px solid var(--color-sidebar-border)' }}>
               <button
                 onClick={() => router.push('/')}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors w-full"
+                className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors w-full"
+                style={{ color: 'var(--color-sidebar-foreground)' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-sidebar-accent)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               >
                 ← 返回主页
               </button>
@@ -403,7 +422,7 @@ export default function TopicPage() {
 
           {/* Intervention Overlay */}
           {intervention.type === 'converge' && (
-            <div className="absolute inset-0 bg-black/20 flex items-center justify-center p-4 z-10">
+            <div className="absolute inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-10">
               <ConvergeCard
                 summary={intervention.content.summary}
                 options={intervention.content.options}
@@ -414,7 +433,7 @@ export default function TopicPage() {
           )}
 
           {intervention.type === 'transition' && (
-            <div className="absolute inset-0 bg-black/20 flex items-center justify-center p-4 z-10">
+            <div className="absolute inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-10">
               <TransitionCard
                 stageSummary={intervention.content.stage_summary}
                 nextDirections={intervention.content.next_directions}

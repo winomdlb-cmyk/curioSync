@@ -93,11 +93,11 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--color-background)' }}>
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
+      <header className="border-b px-6 py-4" style={{ backgroundColor: 'var(--color-background)', borderColor: 'var(--color-border)' }}>
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">CurioSync</h1>
+          <h1 className="text-2xl font-bold">CurioSync</h1>
           <Button onClick={() => setShowModal(true)}>
             + 新建主题
           </Button>
@@ -108,11 +108,11 @@ export default function HomePage() {
       <main className="max-w-6xl mx-auto px-6 py-8">
         {loading ? (
           <div className="flex justify-center py-20">
-            <div className="text-gray-500">加载中...</div>
+            <div className="text-[--color-muted-foreground]">加载中...</div>
           </div>
         ) : topics.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20">
-            <div className="text-gray-400 text-lg mb-4">开始你的第一个学习主题</div>
+            <div className="text-[--color-muted-foreground] text-lg mb-4">开始你的第一个学习主题</div>
             <Button onClick={() => setShowModal(true)}>
               + 新建主题
             </Button>
@@ -123,10 +123,11 @@ export default function HomePage() {
               <div
                 key={topic.id}
                 onClick={() => router.push(`/topic/${topic.id}`)}
-                className="bg-white rounded-xl p-6 border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer relative group"
+                className="rounded-xl p-6 border hover:shadow-md transition-all cursor-pointer relative group"
+                style={{ backgroundColor: 'var(--color-card)', borderColor: 'var(--color-border)' }}
               >
                 <DropdownMenu>
-                  <DropdownMenuTrigger className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 h-8 w-8 p-0 rounded-md hover:bg-gray-100">
+                  <DropdownMenuTrigger className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 h-8 w-8 p-0 rounded-md">
                     ···
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
@@ -138,19 +139,19 @@ export default function HomePage() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2 pr-6">
+                <h3 className="text-lg font-semibold text-[--color-foreground] mb-2 pr-6">
                   {topic.title}
                 </h3>
                 {topic.description && (
-                  <p className="text-gray-500 text-sm mb-4 line-clamp-2">
+                  <p className="text-[--color-muted-foreground] text-sm mb-4 line-clamp-2">
                     {topic.description}
                   </p>
                 )}
-                <div className="flex items-center gap-4 text-sm text-gray-400">
+                <div className="flex items-center gap-4 text-sm text-[--color-muted-foreground]">
                   <span>◈ {topic.node_count} 个知识点</span>
                   <span>💬 {topic.conversation_count} 个对话</span>
                 </div>
-                <div className="mt-3 text-sm text-gray-400">
+                <div className="mt-3 text-sm text-[--color-muted-foreground]">
                   {formatDate(topic.updated_at)}
                 </div>
               </div>
@@ -176,7 +177,7 @@ export default function HomePage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[--color-foreground] mb-1">
                 主题名称
               </label>
               <input
@@ -184,12 +185,13 @@ export default function HomePage() {
                 value={newTitle}
                 onChange={e => setNewTitle(e.target.value)}
                 placeholder="比如：量子力学入门"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 resize-none"
+                style={{ backgroundColor: 'var(--color-background)', borderColor: 'var(--color-border)', color: 'var(--color-foreground)' }}
                 autoFocus
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[--color-foreground] mb-1">
                 简单描述（选填）
               </label>
               <textarea
@@ -197,7 +199,8 @@ export default function HomePage() {
                 onChange={e => setNewDescription(e.target.value)}
                 placeholder="你想了解什么？"
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 resize-none"
+                style={{ backgroundColor: 'var(--color-background)', borderColor: 'var(--color-border)', color: 'var(--color-foreground)' }}
               />
             </div>
           </div>

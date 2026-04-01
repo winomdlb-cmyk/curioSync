@@ -23,19 +23,19 @@ export default function ConvergeCard({
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-5 max-w-md mx-auto border border-gray-100">
+    <div className="bg-[--color-card] rounded-xl shadow-lg p-5 max-w-md mx-auto border border-[--color-border]">
       <div className="flex items-start gap-3 mb-4">
         <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
           <span className="text-blue-600 text-sm">◷</span>
         </div>
         <div>
-          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+          <h3 className="text-sm font-medium text-[--color-muted-foreground] uppercase tracking-wide">
             收敛聚焦
           </h3>
         </div>
       </div>
 
-      <p className="text-gray-700 text-sm leading-relaxed mb-5">
+      <p className="text-[--color-foreground] text-sm leading-relaxed mb-5">
         {summary}
       </p>
 
@@ -47,8 +47,8 @@ export default function ConvergeCard({
             disabled={selected !== null}
             className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
               selected === option
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-[--color-primary] text-[--color-primary-foreground]'
+                : 'bg-[--color-muted] text-[--color-foreground] hover:bg-[--color-accent]'
             }`}
           >
             {option}
@@ -59,7 +59,7 @@ export default function ConvergeCard({
       {onDismiss && (
         <button
           onClick={onDismiss}
-          className="mt-3 text-xs text-gray-400 hover:text-gray-600 w-full text-center"
+          className="mt-3 text-xs text-[--color-muted-foreground] hover:text-[--color-foreground] w-full text-center"
         >
           稍后再说
         </button>

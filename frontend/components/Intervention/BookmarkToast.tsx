@@ -38,7 +38,7 @@ export default function BookmarkToast({
 
   return (
     <div
-      className={`fixed bottom-6 right-6 bg-white rounded-lg shadow-lg border border-gray-200 p-4 max-w-xs transition-all duration-300 ${
+      className={`fixed bottom-6 right-6 bg-[--color-card] rounded-lg shadow-lg border border-[--color-border] p-4 max-w-xs transition-all duration-300 ${
         isHiding ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'
       }`}
     >
@@ -47,19 +47,19 @@ export default function BookmarkToast({
           <span className="text-yellow-600 text-xs">★</span>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-800">
+          <p className="text-sm font-medium text-[--color-foreground]">
             {bookmarkTitle}
           </p>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-[--color-muted-foreground] mt-0.5">
             {bookmarkDescription}
           </p>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-[--color-muted-foreground] mt-1">
             已加入书签
           </p>
         </div>
         <button
           onClick={handleDismiss}
-          className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+          className="text-[--color-muted-foreground] hover:text-[--color-foreground] text-lg leading-none"
         >
           ×
         </button>

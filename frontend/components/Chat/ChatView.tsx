@@ -61,10 +61,10 @@ export default function ChatView({ topicTitle, messages, reasoningText = '', isS
       <div className="flex-1 overflow-y-auto px-4 py-6">
         {isEmpty ? (
           <div className="h-full flex flex-col items-center justify-center text-center">
-            <div className="text-gray-400 text-lg mb-2">
+            <div className="text-[--color-muted-foreground] text-lg mb-2">
               你好！这是关于「{topicTitle}」的对话
             </div>
-            <div className="text-gray-400">
+            <div className="text-[--color-muted-foreground]">
               从任何一个你好奇的问题开始吧 ✦
             </div>
           </div>
