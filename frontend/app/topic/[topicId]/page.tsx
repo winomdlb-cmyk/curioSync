@@ -43,10 +43,13 @@ export default function TopicPage() {
   const failedMessageRef = useRef<string>('')
 
   useEffect(() => {
+    if (!topicId) return
     loadTopicData()
   }, [topicId])
 
   async function loadTopicData() {
+    if (!topicId) return
+
     try {
       const [topicData, conversationsRes] = await Promise.all([
         getTopic(topicId),

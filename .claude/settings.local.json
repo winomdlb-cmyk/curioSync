@@ -6,7 +6,11 @@
       "Write(/Users/denglubin/curioSync/**)",
       "Edit(/Users/denglubin/curioSync/**)",
       "mcp__MiniMax__web_search",
-      "mcp__MiniMax__understand_image"
+      "mcp__MiniMax__understand_image",
+      "WebSearch",
+      "WebFetch(domain:www.assistant-ui.com)",
+      "WebFetch(domain:assistant-ui.com)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }
