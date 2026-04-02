@@ -70,7 +70,7 @@ export async function deleteConversation(conversationId: string): Promise<void> 
   if (!res.ok) throw new Error('Failed to delete conversation')
 }
 
-// Chat API with SSE
+// Chat API with data-stream
 export async function sendMessage(
   conversationId: string,
   topicId: string,
@@ -99,44 +99,60 @@ export async function sendMessage(
 
   const reader = response.body!.getReader()
   const decoder = new TextDecoder()
-  let currentEvent = ''
+  let buffer = ''
 
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
 
     const chunk = decoder.decode(value, { stream: true })
-    const lines = chunk.split('\n')
+    buffer += chunk
+
+    // Process complete lines
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || '' // Keep incomplete line in buffer
 
     for (const line of lines) {
-      if (line.startsWith('event: ')) {
-        currentEvent = line.slice(7).trim()
-      } else if (line.startsWith('data: ')) {
-        try {
-          const data = JSON.parse(line.slice(6))
-          switch (currentEvent) {
-            case 'reasoning':
-              callbacks.onReasoning(data.text)
-              break
-            case 'content':
-              callbacks.onContent(data.text)
-              break
-            case 'node_hint':
-              callbacks.onNodeHint(data)
-              break
-            case 'intervention':
-              callbacks.onIntervention(data)
-              break
-            case 'graph_update':
-              callbacks.onGraphUpdate(data)
-              break
-            case 'done':
-              callbacks.onDone(data)
-              break
+      const trimmedLine = line.trim()
+      if (!trimmedLine) continue
+
+      const colonIndex = trimmedLine.indexOf(':')
+      if (colonIndex === -1) continue
+
+      const type = trimmedLine.slice(0, colonIndex)
+      const jsonStr = trimmedLine.slice(colonIndex + 1)
+
+      try {
+        // For g: and 0:, the value is a raw string (JSON encoded)
+        // For d: and 3:, the value is an object
+        switch (type) {
+          case 'g': // Reasoning delta - value is a string
+            callbacks.onReasoning(jsonStr || '')
+            break
+          case '0': // Text delta - value is a string
+            callbacks.onContent(jsonStr || '')
+            break
+          case 'd': { // Done - value is an object with finishReason and usage
+            const data = JSON.parse(jsonStr)
+            if (data.finishReason === 'stop') {
+              const curioMetadata = data.usage?.curioMetadata || {}
+              if (curioMetadata.node_hint) {
+                callbacks.onNodeHint(curioMetadata.node_hint)
+              }
+              if (curioMetadata.intervention) {
+                callbacks.onIntervention(curioMetadata.intervention)
+              }
+              // Note: graph_update is bundled in curioMetadata now
+              callbacks.onDone({ message_id: '', title_updated: true })
+            }
+            break
           }
-        } catch (e) {
-          // JSON 解析失败，忽略
+          case '3': // Error - value is a string
+            callbacks.onError(new Error(jsonStr || 'Unknown error'))
+            break
         }
+      } catch (e) {
+        // JSON 解析失败，忽略
       }
     }
   }

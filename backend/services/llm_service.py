@@ -136,6 +136,8 @@ class LLMService:
         think_start = re.compile(r'<think>')
         think_end = re.compile(r'</think>')
         in_thinking = False
+        node_hint_data = None
+        intervention_data = None
 
         try:
             async for chunk in self.llm.astream(messages):
@@ -160,13 +162,13 @@ class LLMService:
                                 in_thinking = False
                                 thinking_content = think_text[:end_match.start()]
                                 if thinking_content:
-                                    yield {"event": "reasoning", "data": {"text": thinking_content}}
+                                    yield f"g:{json.dumps(thinking_content)}\n"
                                 # Content after </think> - buffer for JSON parsing
                                 accumulated += think_text[end_match.end():]
                             else:
                                 # Only <think> in this chunk
                                 if think_text:
-                                    yield {"event": "reasoning", "data": {"text": think_text}}
+                                    yield f"g:{json.dumps(think_text)}\n"
                         else:
                             # No thinking markers - buffer as text
                             accumulated += text
@@ -178,15 +180,15 @@ class LLMService:
                             in_thinking = False
                             thinking_content = text[:end_match.start()]
                             if thinking_content:
-                                yield {"event": "reasoning", "data": {"text": thinking_content}}
+                                yield f"g:{json.dumps(thinking_content)}\n"
                             # Content after </think> - buffer for JSON parsing
                             accumulated += text[end_match.end():]
                         else:
                             # Still inside <think> - send as reasoning
-                            yield {"event": "reasoning", "data": {"text": text}}
+                            yield f"g:{json.dumps(text)}\n"
 
         except Exception as e:
-            yield {"event": "error", "data": {"message": str(e)}}
+            yield f"3:{json.dumps(str(e))}\n"
             return
 
         # Parse JSON response and extract answer
@@ -211,45 +213,29 @@ class LLMService:
             # Stream the answer content
             answer_text = response.get("answer", "")
             if answer_text:
-                yield {"event": "content", "data": {"text": answer_text}}
+                yield f"0:{json.dumps(answer_text)}\n"
 
             # Update memory with new exchange
             memory.chat_memory.add_user_message(user_message)
             memory.chat_memory.add_ai_message(answer_text)
 
-            # Yield knowledge_extraction for graph update
+            # Collect knowledge_extraction data for metadata
             knowledge_extraction = response.get("knowledge_extraction", {})
-            if knowledge_extraction.get("new_nodes") or knowledge_extraction.get("nodes_to_update"):
-                yield {
-                    "event": "knowledge_extraction",
-                    "data": knowledge_extraction,
-                }
-
-            # Yield node_hint
             new_nodes = knowledge_extraction.get("new_nodes", [])
             updated_nodes = knowledge_extraction.get("nodes_to_update", [])
             if new_nodes or updated_nodes:
-                yield {
-                    "event": "node_hint",
-                    "data": {
-                        "new_nodes": new_nodes,
-                        "updated_nodes": updated_nodes,
-                    },
+                node_hint_data = {
+                    "new_nodes": new_nodes,
+                    "updated_nodes": updated_nodes,
                 }
 
-            # Yield intervention
+            # Collect intervention data for metadata
             intervention = response.get("intervention", {})
             if intervention.get("should_intervene"):
-                yield {
-                    "event": "intervention",
-                    "data": {
-                        "type": intervention.get("type", "none"),
-                        "content": intervention.get("content", {}),
-                    },
+                intervention_data = {
+                    "type": intervention.get("type", "none"),
+                    "content": intervention.get("content", {}),
                 }
-
-            # Yield observation
-            yield {"event": "observation", "data": response.get("observation", {})}
 
         except Exception as e:
             # JSON parse failed - log and fallback
@@ -262,13 +248,20 @@ class LLMService:
             if first_brace > 0:
                 text_content = clean_response[:first_brace].strip()
                 if text_content:
-                    yield {"event": "content", "data": {"text": text_content}}
+                    yield f"0:{json.dumps(text_content)}\n"
 
             # Update memory with raw response
             memory.chat_memory.add_user_message(user_message)
             memory.chat_memory.add_ai_message(clean_response)
 
-        yield {"event": "done", "data": {"message_id": "", "title_updated": False}}
+        # Build metadata for finish event
+        metadata = {}
+        if node_hint_data:
+            metadata["node_hint"] = node_hint_data
+        if intervention_data:
+            metadata["intervention"] = intervention_data
+
+        yield f"d:{json.dumps({'finishReason': 'stop', 'usage': {'inputTokens': 0, 'outputTokens': 0, 'curioMetadata': metadata}})}\n"
 
     async def generate_title(self, first_message: str) -> str:
         """Generate conversation title using LangChain PromptTemplate, 10 chars or less"""

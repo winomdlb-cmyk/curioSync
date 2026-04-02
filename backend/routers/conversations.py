@@ -200,7 +200,7 @@ async def chat(conversation_id: str, request: ChatRequest):
         )
 
         if not conv_result.data:
-            yield {"event": "error", "data": json.dumps({"message": "Conversation not found"})}
+            yield "3:{\"error\": \"Conversation not found\"}\n"
             return
 
         conv = conv_result.data[0]
@@ -261,13 +261,12 @@ async def chat(conversation_id: str, request: ChatRequest):
         if is_first_message:
             asyncio.create_task(_update_conversation_title(conversation_id, request.content))
 
-        # 调用 LLM 服务
+        # 调用 LLM 服务 - 直接传递 data-stream 格式
         full_response = ""
-        observation_data = {}
+        node_hint_data = None
         intervention_data = None
-        knowledge_extraction = None
 
-        async for event in llm_service.chat_stream(
+        async for data_chunk in llm_service.chat_stream(
             conversation_id=conversation_id,
             topic_id=request.topic_id,
             topic_title=topic_title,
@@ -276,77 +275,79 @@ async def chat(conversation_id: str, request: ChatRequest):
             conversation_history=conversation_history,
             conversation_state=conversation_state,
         ):
-            event_type = event.get("event")
-            data = event.get("data")
+            # data_chunk is already in data-stream format like "g:{...}\n" or "0:{...}\n" or "d:{...}\n"
+            yield data_chunk
 
-            if event_type == "reasoning":
-                # Phase 2: reasoning content from M2.7 thinking process
-                yield {"event": "reasoning", "data": json.dumps({"text": data.get("text", "")})}
+            # Track full response and metadata
+            if data_chunk.startswith("0:"):
+                try:
+                    # Extract text delta
+                    json_str = data_chunk[2:].strip()
+                    if json_str.endswith("\n"):
+                        json_str = json_str[:-1]
+                    data = json.loads(json_str)
+                    full_response += data.get("textDelta", "")
+                except:
+                    pass
+            elif data_chunk.startswith("d:"):
+                try:
+                    # Extract metadata from finish event
+                    json_str = data_chunk[2:].strip()
+                    if json_str.endswith("\n"):
+                        json_str = json_str[:-1]
+                    data = json.loads(json_str)
+                    usage = data.get("usage", {})
+                    curio_metadata = usage.get("curioMetadata", {})
+                    node_hint_data = curio_metadata.get("node_hint")
+                    intervention_data = curio_metadata.get("intervention")
+                except:
+                    pass
 
-            elif event_type == "content":
-                full_response += data.get("text", "")
-                yield {"event": "content", "data": json.dumps({"text": data.get("text", "")})}
-
-            elif event_type == "node_hint":
-                yield {"event": "node_hint", "data": json.dumps(data)}
-
-            elif event_type == "knowledge_extraction":
-                knowledge_extraction = data
-
-            elif event_type == "intervention":
-                intervention_data = data
-                yield {"event": "intervention", "data": json.dumps(data)}
-
-            elif event_type == "observation":
-                observation_data = data
-
-            elif event_type == "error":
-                yield {"event": "error", "data": json.dumps(data)}
-
-            elif event_type == "done":
-                # 保存 AI 消息
-                ai_msg_result = (
-                    supabase.table("messages")
-                    .insert(
-                        {
-                            "conversation_id": conversation_id,
-                            "role": "assistant",
-                            "content": full_response,
-                            "message_type": "normal",
-                        }
-                    )
-                    .execute()
+        # After stream completes, save AI message and update graph
+        if full_response:
+            ai_msg_result = (
+                supabase.table("messages")
+                .insert(
+                    {
+                        "conversation_id": conversation_id,
+                        "role": "assistant",
+                        "content": full_response,
+                        "message_type": "normal",
+                    }
                 )
-                ai_msg_id = ai_msg_result.data[0]["id"] if ai_msg_result.data else ""
+                .execute()
+            )
 
-                # 更新对话状态
-                await _update_conversation_state(
-                    conversation_id, observation_data, intervention_data
+            # 更新对话状态
+            if intervention_data:
+                await _update_conversation_state(conversation_id, {}, intervention_data)
+            else:
+                await _update_conversation_state(conversation_id, {}, None)
+
+            # 更新知识图谱
+            if node_hint_data:
+                await graph_service.update_graph(request.topic_id, {
+                    "new_nodes": node_hint_data.get("new_nodes", []),
+                    "nodes_to_update": node_hint_data.get("updated_nodes", [])
+                })
+
+            # 如果是书签介入，写入书签表
+            if intervention_data and intervention_data.get("type") == "bookmark":
+                content = intervention_data.get("content", {})
+                bookmark_service.create_bookmark(
+                    topic_id=request.topic_id,
+                    conversation_id=conversation_id,
+                    bookmark_title=content.get("bookmark_title", ""),
+                    bookmark_description=content.get("bookmark_description", ""),
+                    message_context=request.content,
                 )
 
-                # 更新知识图谱
-                if knowledge_extraction:
-                    await graph_service.update_graph(request.topic_id, knowledge_extraction)
-
-                # 如果是书签介入，写入书签表
-                if intervention_data and intervention_data.get("type") == "bookmark":
-                    content = intervention_data.get("content", {})
-                    bookmark_service.create_bookmark(
-                        topic_id=request.topic_id,
-                        conversation_id=conversation_id,
-                        bookmark_title=content.get("bookmark_title", ""),
-                        bookmark_description=content.get("bookmark_description", ""),
-                        message_context=request.content,
-                    )
-
-                yield {
-                    "event": "done",
-                    "data": json.dumps(
-                        {"message_id": ai_msg_id, "title_updated": False}
-                    ),
-                }
-
-    return EventSourceResponse(event_generator())
+    from fastapi.responses import StreamingResponse
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/plain",
+        headers={"Content-Type": "text/plain; charset=utf-8"}
+    )
 
 
 @router.delete("/{conversation_id}")
